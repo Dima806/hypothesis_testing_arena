@@ -102,7 +102,7 @@ defeats every mean-based test in the arena (0.130–0.342). It is kept in the gr
 project about overclaimed tests should not overclaim.
 
 **Twenty metrics, none of them changed, all tests perfectly calibrated:** at least one comes back
-"significant" **64.3%** of the time (theory says 64.15%). No test fixes that.
+"significant" **64.25%** of the time (theory says 64.15%). No test fixes that.
 
 ---
 

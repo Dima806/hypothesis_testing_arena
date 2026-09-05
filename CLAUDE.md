@@ -37,8 +37,9 @@ code back toward the PRD:
 - Student inflates α under unequal variance only when the **sample sizes are also unequal**.
   With equal n it is close to fine, which is why the failure hides in textbook examples.
 
-Deliverables: 6 notebooks, a `src/` library, a Streamlit app, a pytest suite, CI.
-Everything is simulated. There is no dataset to download and none should be added.
+Deliverables, all built: a `src/` library, 6 executed notebooks, 19 committed figures, 6 committed
+result JSONs, a Streamlit app, and a 68-test pytest suite. Everything is simulated. There is no
+dataset to download and none should be added.
 
 ---
 
@@ -63,20 +64,27 @@ no scikit-learn, no numba. The Bayesian contender must be implementable in numpy
 ```bash
 make setup       # first run: install uv, uv sync --all-extras, register the ipykernel
 make sync        # uv sync --all-extras
-make lint        # format + check + typecheck
-make test        # uv run pytest
-make notebooks   # execute all notebooks/0*.ipynb via nbconvert (timeout 300s each)
+make lint        # format + check + typecheck (ruff format, ruff check --fix, ty check src/)
+make test        # uv run pytest              (68 tests, ~20s)
+make test-fast   # pytest -x -q -m "not slow" <- inner loop
+make notebooks   # execute all notebooks/0*.ipynb IN PLACE via nbconvert (timeout 900s each)
 make run         # streamlit app on :8501
 make lab         # jupyterlab on :8888
-make ci          # sync + lint + test   <- what CI runs
-make dev         # lint + test          <- fast inner loop
+make ci          # sync + lint + test, at HTA_PROFILE=ci   <- the gate
+make dev         # lint + test                             <- fast inner loop
 ```
 
-Fast loop while iterating on one module:
-`uv run pytest tests/test_permutation.py -x -q -m "not slow"`.
+**There is no GitHub Actions workflow.** `.github/workflows/ci.yml` was removed (its Node-based
+actions failed in this environment), so `make ci` is the gate and it runs locally. That is a
+deliberate deviation from PRD §4.1, which lists a `ci.yml`; if you re-add one, do not reintroduce
+Node-dependent actions.
 
-**Before declaring any task done: `make lint && make test` must be green.** Report failures with the
-actual output; never describe a red suite as passing.
+`make setup` registers the `hypothesis-testing-arena` ipykernel, which `make notebooks` needs — a
+bare `uv sync` is not enough to execute notebooks.
+
+**Before declaring any task done: `make lint && make test` must be green.** If you touched anything
+a notebook uses, `make notebooks` too. Report failures with the actual output; never describe a red
+suite as passing.
 
 ---
 
@@ -84,7 +92,7 @@ actual output; never describe a red suite as passing.
 
 ```
 config/settings.yaml        # effect sizes, skew, variance ratios, sample sizes, seeds, n_reps
-src/config.py               # pydantic-settings loader for the above
+src/config.py               # pydantic-settings loader + output paths + save_results()
 src/tests/                  # THE SIX STATISTICAL TESTS (not pytest)
   student.py welch.py mann_whitney.py permutation.py bootstrap.py bayesian.py
 src/simulation/populations.py   # normal / skewed / heavy-tailed / unequal-variance generators
@@ -94,7 +102,9 @@ src/visualisation.py        # every figure in the project
 app/streamlit_app.py        # 4 tabs (§9)
 notebooks/01..06            # narrative only, no logic
 tests/                      # PYTEST SUITE
-outputs/figures/            # committed figures;  outputs/cache/ is git-ignored
+outputs/figures/            # committed PNGs
+outputs/results/            # committed JSON: every number and claim each notebook makes
+outputs/cache/              # git-ignored (`outputs/cache/*csv`); the arena's content-hash cache
 ```
 
 ### Two naming traps — read before scaffolding
@@ -251,7 +261,9 @@ declares its true mean and true median.
 the Monte Carlo standard error `sqrt(p(1−p)/R)` alongside the rate (at `R=10_000`, `p=0.05` →
 SE ≈ 0.0022). Any claim of "inflated" must clear several SEs, not one.
 
-**`evaluation/power.py`** — the same over an effect scenario.
+**`evaluation/power.py`** — the same over an effect scenario, plus `power_curve()` (tidy frame over
+a swept knob) and `family_wise_error_rate()`, the multiple-comparisons trap: `k` null comparisons
+run `trials` times, measured against `1 − (1 − α)^k`.
 
 **`evaluation/calibration.py`** — the p-value uniformity check: PP-plot against Uniform(0,1) plus a
 KS statistic. This is the visual proof in notebook 02. The Bayesian contender has no p-value; show
@@ -262,29 +274,56 @@ its posterior-probability calibration separately rather than faking a p-value fo
 `scenario, test, n_a, n_b, alpha, delta, reps, reject_rate, mc_se, metric ∈ {fpr, power}, seed`.
 Wide/pivoted frames are for display only.
 
-**Caching.** The arena writes to `outputs/cache/` (git-ignored) keyed by a hash of the resolved
-config. Cached results must be invalidated when the config changes — hash the config, don't trust a
-filename. Figures land in `outputs/figures/` and *are* committed.
+**Caching (implemented — `arena_cache_key`).** The full arena takes **≈9.5 minutes** at the `full`
+profile on a 2-CPU box, so `run_arena` caches to `outputs/cache/arena_<hash>.csv`. The hash covers
+the scenarios, test names, `n_reps`, `alpha`, `seed` and the profile's resampling budgets — content,
+never a filename. Pass `cache=False` when you supply a custom `tests=` registry, whose budgets the
+key cannot see.
 
-**CI profile.** CI cannot afford 10 000 reps. Support a reduced-rep profile selected by config/env
-(e.g. `HTA_PROFILE=ci` → `n_reps=1_000`) and make CI use it. Published numbers always come from the
-full profile.
+A cached arena must be **bit-identical** to a recomputed one; there is a test for it. Two traps,
+both already fixed, both easy to reintroduce:
+- write with `float_format="%.17g"` and read with `float_precision="round_trip"` — pandas' default
+  CSV float parser is fast and *inexact*, and silently returns values a few ulps off;
+- re-apply `ARENA_DTYPES` on read, or a column that happens to hold only whole numbers (`sd_ratio`
+  of 1.0, `skewness` of 0.0) comes back as int64. Do **not** declare dtypes for the four label
+  columns: pandas infers `object` on 2.x and `str` on 3.x, and pinning either breaks the other.
+
+**Simulation profile.** `HTA_PROFILE=ci` selects the reduced-rep profile (`n_reps=1_000`); `make ci`
+sets it. Published numbers always come from the `full` profile. `full` uses `n_perm = n_boot = 499`
+rather than the classic 999 to keep the arena inside its time budget; the verdict does not move.
 
 ---
 
 ## 8. Notebooks
 
-Six notebooks, in order: `01_the_question_and_the_reflex`, `02_when_the_t_test_breaks` (the
-showpiece), `03_the_assumption_free_tests`, `04_arena`, `05_power_and_sample_size`,
-`06_decision_framework`.
+All six are written and executing: `01_the_question_and_the_reflex`, `02_when_the_t_test_breaks`
+(the showpiece), `03_the_assumption_free_tests`, `04_arena`, `05_power_and_sample_size`,
+`06_decision_framework`. `make notebooks` runs them **in place**, so the committed `.ipynb` carries
+its rendered output — that is what a reader of the repository actually sees.
 
 Rules:
 - **No logic in notebooks.** They import from `src/` and narrate. If a notebook needs a loop over
-  scenarios, that loop belongs in `src/evaluation/`.
+  scenarios, that loop belongs in `src/evaluation/`. `family_wise_error_rate` exists because
+  notebook 05 would otherwise have reshaped an array itself.
 - Markdown-first: every code cell is preceded by prose saying what it will show and followed by prose
   saying what it showed.
-- Deterministic: seeds from config; must run top-to-bottom from a clean kernel in **< 5 min**.
-- Save every figure to `outputs/figures/` with a stable filename.
+- Deterministic: seeds from config. Every notebook except 04 runs in well under two minutes; 04 is
+  ≈9.5 min cold and seconds warm, which is why `make notebooks` allows 900s.
+- **Two persistence rules, both mandatory:** every figure goes to `outputs/figures/<nb>_<name>.png`
+  via `save_figure`, and every number and prose claim goes to `outputs/results/<notebook>.json` via
+  `save_results`. Nothing quoted in prose may exist only in a notebook output cell. Each JSON
+  carries `settings`, the raw tables, a `figures` map of the PNGs it wrote, and a `claims` list —
+  the sentences with their measured numbers already substituted in.
+- **Derive seeds the way `run_arena` does.** A standalone `false_positive_rate` /
+  `pvalue_calibration` call must use
+  `derive_seed(seed, name_key(scenario.name))` and
+  `derive_seed(seed, name_key(scenario.name), name_key(test_name))`, or the notebook reports a
+  *different measurement* of the same cell than its own arena table (measured: 0.049 vs 0.055).
+  Note that `with_effect()` renames `x` to `x::null`, which changes the derived seed — index
+  scenarios by the renamed object, not the base one.
+- **Prose must match the tables underneath it.** Two claims in draft notebooks contradicted their
+  own output (a "Mann-Whitney is fine here" next to a 0.172 rejection rate; a quoted CI that was
+  not the CI printed). Re-read the rendered numbers after any change to `src/`.
 - Notebook 06 ships the practical artifact: `compare_groups(a, b, test=...)`, which runs the chosen
   test **and warns when the data violates that test's assumptions**. That warning behavior needs a
   unit test.
@@ -305,19 +344,21 @@ Keep every interaction under a couple of seconds: use a reduced rep count for li
 
 ## 10. Testing requirements
 
-`tests/` mirrors the PRD's four files and must include:
+`tests/` mirrors the PRD's four files (68 tests, ~20 s):
 
 | Test | Assertion |
 |---|---|
-| `test_tests.py` | all six from-scratch tests match scipy on clean data to **1e-9** |
+| `test_tests.py` | all six from-scratch tests match scipy on clean data to **1e-9** (they match *exactly*); the arena cache is keyed on content and round-trips bit-identically; `save_results` emits strict JSON |
 | `test_permutation.py` | permutation holds α across the grid; fails only on `skewed_extreme_unequal`; studentizing is what buys that |
 | `test_false_positive.py` | Student's FPR is **materially above** α under unequal variance *with unequal n*; Welch's is at α; Student is fine at equal n |
-| `test_power.py` | a **trimmed-mean** permutation test beats Student under skew at matched α; permutation *on the mean* does not; Student's apparent power edge under unequal variance is bought with a 39% FPR |
+| `test_power.py` | a **trimmed-mean** permutation test beats Student under skew at matched α; permutation *on the mean* does not; Student's apparent power edge under unequal variance is bought with a 39% FPR; the 20-metric family-wise rate matches `1 − (1 − α)^k` |
 
 Monte-Carlo assertions must not be flaky: fix the seed, use a reduced rep count, and set the
-tolerance from the binomial SE (roughly `3 × sqrt(p(1−p)/R)`), not from a number that happened to
-pass once. Mark anything over ~5 s `@pytest.mark.slow` and register the marker in `pyproject.toml`.
-The success criteria in PRD §8 are the acceptance tests — each row should map to an assertion.
+tolerance from the binomial SE via `tests/conftest.py::mc_tolerance`, not from a number that
+happened to pass once. It defaults to **4** SEs rather than 3 because several assertions sweep
+seven scenarios at once, where 3 SEs would false-alarm about one run in fifty. Mark anything over
+~5 s `@pytest.mark.slow` and register the marker in `pyproject.toml`. The success criteria in
+PRD §8 are the acceptance tests — each row should map to an assertion.
 
 ---
 
@@ -327,7 +368,13 @@ All plotting lives in `src/visualisation.py`; notebooks and the app call it, the
 Matplotlib for static figures, plotly where interactivity earns its place (arena heatmaps,
 the Streamlit tabs). Every figure that makes a claim shows the **α reference line** and, where it is
 a rate estimated from simulation, its Monte Carlo error. Colour-code contenders consistently across
-the whole project — one test, one colour, in every figure.
+the whole project — one test, one colour (`TEST_COLOURS`), in every figure. Where a fill would put
+dark text on a saturated background, use `tint()` for the fill and the colour itself for the border,
+so the palette still identifies the test.
+
+19 committed PNGs in `outputs/figures/`, one JSON per notebook in `outputs/results/`. Grouped bar
+charts centre each group on its tick and set explicit x-limits, so they stay readable with one
+scenario (notebook 01) and with eight (notebook 04).
 
 ---
 
@@ -336,15 +383,21 @@ the whole project — one test, one colour, in every figure.
 - **Don't strawman the t-test.** Implement it correctly, show it winning on clean normal data, then
   show precisely where and why it fails. The project's credibility is the whole point.
 - **Every claim gets a number, and every headline number gets an assertion in `tests/`.** If it isn't
-  measured with a stated seed and rep count, it doesn't go in the README, the notebooks or the
-  article.
+  measured with a stated seed and rep count, it doesn't go in the README or the notebooks. The
+  README's tables are transcribed from `outputs/results/*.json`; regenerate, don't retype.
+- **Measure before you assert.** Four of this project's design decisions (studentized permutation,
+  pure location shifts, studentized bootstrap, per-group outlier fences) exist because a first
+  measurement contradicted the plan. Run the thing, then write the claim.
 - Report Monte Carlo uncertainty. "5.4 % vs 5.0 %" is not an effect at R=1 000.
-- Prefer editing over creating; keep the file tree exactly as PRD §4.1 specifies. Don't invent extra
-  modules, don't add a `utils.py` grab bag.
+- Prefer editing over creating; keep the file tree as PRD §4.1 specifies, minus the removed
+  `.github/workflows/ci.yml` (§3). Don't invent extra modules, don't add a `utils.py` grab bag —
+  `save_results` went into `config.py` (which already owns the output paths) and `compare_groups`
+  into `evaluation/comparison.py` for exactly this reason.
 - Cross-link the sibling projects (`ab_testing_lab`, `bootstrap_101`, `bayesian_101`,
   `imputation_arena`) rather than duplicating their material.
-- Commits: Conventional Commits. Don't commit or push unless asked. `outputs/cache/`, `.venv/`,
-  `.llm/`, `.agents/`, `agent/` stay git-ignored; `outputs/figures/` is committed.
+- Commits: Conventional Commits. Don't commit or push unless asked. `outputs/cache/*csv`, `.venv/`,
+  `.llm/`, `.agents/`, `agent/` stay git-ignored; `outputs/figures/` and `outputs/results/` are
+  committed.
 
 ## 13. Token rules
 
