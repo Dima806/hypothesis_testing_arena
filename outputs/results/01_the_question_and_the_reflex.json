@@ -1,0 +1,140 @@
+{
+  "calibration": [
+    {
+      "is_uniform": true,
+      "ks_p_value": 0.026347460646691356,
+      "ks_statistic": 0.014696290099781573,
+      "n_reps": 10000,
+      "rejection_rate": 0.0496,
+      "scenario": "normal_equal_var::null",
+      "test": "student"
+    },
+    {
+      "is_uniform": true,
+      "ks_p_value": 0.025164825475568753,
+      "ks_statistic": 0.014774113413033363,
+      "n_reps": 10000,
+      "rejection_rate": 0.0495,
+      "scenario": "normal_equal_var::null",
+      "test": "welch"
+    }
+  ],
+  "claims": [
+    "On clean normal equal-variance data the Student and Welch t-tests both hold their false-positive rate at the nominal 0.05 and both detect a 0.8 sd effect at n=50 per group.",
+    "A test is graded by two rates against a known truth: false positives under the null and power under a real effect; neither is readable without its Monte Carlo error.",
+    "The strict form of validity is that null p-values are Uniform(0, 1); on clean data both t-tests trace the diagonal."
+  ],
+  "clean_data_rates": [
+    {
+      "alpha": 0.05,
+      "data_seed": 2746240972,
+      "effect_d": 0.0,
+      "kind": "normal",
+      "mc_se": 0.002171171112556539,
+      "metric": "fpr",
+      "n_a": 50,
+      "n_b": 50,
+      "reject_rate": 0.0496,
+      "reps": 10000,
+      "scenario": "normal_equal_var::null",
+      "sd_ratio": 1.0,
+      "skewness": 0.0,
+      "target": 0.05,
+      "test": "student",
+      "test_seed": 4003608927,
+      "true_mean_difference": 0.0,
+      "true_median_difference": 0.0
+    },
+    {
+      "alpha": 0.05,
+      "data_seed": 2746240972,
+      "effect_d": 0.0,
+      "kind": "normal",
+      "mc_se": 0.0021690954335851615,
+      "metric": "fpr",
+      "n_a": 50,
+      "n_b": 50,
+      "reject_rate": 0.0495,
+      "reps": 10000,
+      "scenario": "normal_equal_var::null",
+      "sd_ratio": 1.0,
+      "skewness": 0.0,
+      "target": 0.05,
+      "test": "welch",
+      "test_seed": 3693370442,
+      "true_mean_difference": 0.0,
+      "true_median_difference": 0.0
+    },
+    {
+      "alpha": 0.05,
+      "data_seed": 793421674,
+      "effect_d": 0.8,
+      "kind": "normal",
+      "mc_se": 0.001483028994996388,
+      "metric": "power",
+      "n_a": 50,
+      "n_b": 50,
+      "reject_rate": 0.9775,
+      "reps": 10000,
+      "scenario": "normal_equal_var::effect",
+      "sd_ratio": 1.0,
+      "skewness": 0.0,
+      "target": null,
+      "test": "student",
+      "test_seed": 3465314325,
+      "true_mean_difference": 0.8,
+      "true_median_difference": 0.8
+    },
+    {
+      "alpha": 0.05,
+      "data_seed": 793421674,
+      "effect_d": 0.8,
+      "kind": "normal",
+      "mc_se": 0.001483028994996388,
+      "metric": "power",
+      "n_a": 50,
+      "n_b": 50,
+      "reject_rate": 0.9775,
+      "reps": 10000,
+      "scenario": "normal_equal_var::effect",
+      "sd_ratio": 1.0,
+      "skewness": 0.0,
+      "target": null,
+      "test": "welch",
+      "test_seed": 2734386234,
+      "true_mean_difference": 0.8,
+      "true_median_difference": 0.8
+    }
+  ],
+  "figures": {
+    "calibration_clean": "/workspaces/hypothesis_testing_arena/outputs/figures/01_calibration_clean.png",
+    "power_clean": "/workspaces/hypothesis_testing_arena/outputs/figures/01_power_clean.png",
+    "the_reflex": "/workspaces/hypothesis_testing_arena/outputs/figures/01_the_reflex.png",
+    "type_one_error_clean": "/workspaces/hypothesis_testing_arena/outputs/figures/01_type_one_error_clean.png"
+  },
+  "notebook": "01_the_question_and_the_reflex",
+  "settings": {
+    "alpha": 0.05,
+    "demo_seed": 7,
+    "n_reps": 10000,
+    "profile": "full",
+    "seed": 20250905
+  },
+  "single_comparison": {
+    "n_a": 50,
+    "n_b": 50,
+    "observed_difference": 1.0394485913582707,
+    "scenario": "normal_equal_var",
+    "student": {
+      "p_value": 4.470431666864777e-08,
+      "reject": true,
+      "t": 5.933914659296268
+    },
+    "true_mean_difference": 0.8,
+    "welch": {
+      "p_value": 4.487904587599004e-08,
+      "reject": true,
+      "t": 5.933914659296268
+    }
+  }
+}

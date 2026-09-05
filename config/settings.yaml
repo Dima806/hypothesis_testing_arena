@@ -1,0 +1,68 @@
+# Every published number in this project is regenerable from this file.
+# Read through src/config.py; nothing in src/, notebooks/ or app/ hard-codes these values.
+
+# Master seed. Per-scenario and per-test seeds are derived from it deterministically.
+seed: 20250905
+
+# Nominal significance level. The whole project is an audit of whether the six tests
+# actually deliver this false-positive rate.
+alpha: 0.05
+
+# Simulation size profiles. `full` produces the published numbers; `ci` is the reduced-rep
+# profile used by `make ci`. Select with the HTA_PROFILE environment variable.
+profiles:
+  full:
+    n_reps: 10000      # replications per (scenario, test) cell
+    n_perm: 499        # label shuffles per permutation test (min attainable p = 1/500)
+    n_boot: 499        # resamples per bootstrap test
+    n_posterior: 4000  # posterior draws per Bayesian test
+    # 499 rather than the classic 999 keeps the full 16-scenario arena inside the 4-minute
+    # budget on a 2-CPU Codespace. Raise it for a single headline figure if you want a finer
+    # p-value grid; the arena verdict does not move.
+  ci:
+    n_reps: 1000
+    n_perm: 299
+    n_boot: 299
+    n_posterior: 1000
+
+# Population defaults per kind. `mean` and `sd` are the true population mean and standard
+# deviation, so a Cohen's d effect size means the same thing across every kind.
+populations:
+  normal:
+    mean: 0.0
+    sd: 1.0
+  lognormal:
+    # cv = sd / mean = 1.0  ->  skewness = (cv^2 + 3) * cv = 4.0
+    mean: 10.0
+    sd: 10.0
+  heavy_tailed:
+    # Scaled Student-t; df = 3 has finite variance but no finite kurtosis.
+    mean: 0.0
+    sd: 1.0
+    df: 3.0
+  contaminated:
+    # 10% of draws come from a component with 10x the standard deviation.
+    mean: 0.0
+    sd: 1.0
+    contamination: 0.1
+    outlier_sd_mult: 10.0
+
+# Knobs swept by the notebooks.
+grid:
+  effect_sizes: [0.0, 0.2, 0.5, 0.8]
+  sample_sizes: [10, 20, 50, 100, 200]
+  sd_ratios: [1.0, 2.0, 4.0]
+  n_small: 15
+  n_large: 100
+  # Effect size used by the paired null/effect scenarios in the default arena grid.
+  arena_effect_d: 0.8
+
+# Knobs used only by the notebooks.
+notebooks:
+  # Power curves sweep several sample sizes x several tests, so they use a smaller replication
+  # count than the arena. mc_se at p = 0.5 is 0.011, which is finer than the curves are read.
+  power_curve_reps: 2000
+  # How many independent null metrics to test in the multiple-comparisons demonstration.
+  multiple_comparisons_k: 20
+  # Seed for the single illustrative datasets drawn in the narrative.
+  demo_seed: 7

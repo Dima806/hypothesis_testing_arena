@@ -1,0 +1,84 @@
+[project]
+name = "hypothesis-testing-arena"
+version = "0.1.0"
+description = "The t-test you were taught assumes a bell curve your data does not have"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "Dmytro Iakubovskyi" }]
+keywords = [
+    "hypothesis-testing",
+    "t-test",
+    "welch",
+    "mann-whitney",
+    "permutation-test",
+    "bootstrap",
+    "bayesian-estimation",
+    "simulation",
+]
+dependencies = [
+    "scipy>=1.14",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "matplotlib>=3.9",
+    "plotly>=5.22",
+    "streamlit>=1.38",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+    "ty>=0.0.1a7",
+    "jupyter>=1.1",
+    "ipykernel>=6.29",
+    "nbconvert>=7.16",
+    "nbclient>=0.10",
+]
+
+# `src` is imported as a flat package (`from src.tests.welch import welch_test`) while the project
+# is named `hypothesis-testing-arena`. This is an application, not a distributable library, so uv
+# resolves and installs the dependencies without trying to build `src` into a wheel. See CLAUDE.md
+# section 4 ("Two naming traps"). Importability comes from PYTHONPATH (Makefile) and
+# `tool.pytest.ini_options.pythonpath` below.
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "N", "B", "A", "SIM", "PTH"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Notebooks narrate; they may re-import and leave expression statements as displayed output.
+"notebooks/*.ipynb" = ["E402", "B018"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short --strict-markers"
+# Makes `src` importable from tests without installing the project.
+# `testpaths` also keeps collection away from `src/tests/`, which holds the six statistical
+# tests, not pytest cases.
+pythonpath = ["."]
+markers = [
+    "slow: simulation-heavy test (thousands of replications); deselect with -m 'not slow'",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
