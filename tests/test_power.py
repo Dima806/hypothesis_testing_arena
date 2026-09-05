@@ -17,7 +17,7 @@ import pytest
 
 from src.evaluation import derive_seed, name_key
 from src.evaluation.false_positive import false_positive_rate, is_calibrated
-from src.evaluation.power import power, power_curve
+from src.evaluation.power import family_wise_error_rate, power, power_curve
 from src.simulation.scenarios import make_scenario
 from src.tests import trimmed_mean_difference
 from src.tests.mann_whitney import mann_whitney_test
@@ -153,6 +153,29 @@ def test_power_grows_with_sample_size(settings):
     powers = frame.sort_values("n_a")["power"].tolist()
     assert powers == sorted(powers), powers
     assert powers[-1] > powers[0] + 0.3
+
+
+@pytest.mark.slow
+def test_the_multiple_comparisons_trap_matches_its_arithmetic(settings):
+    """Twenty perfectly calibrated tests still hand you a false discovery two times in three.
+
+    Nothing is wrong with the test here — the error is in asking twenty questions and reporting
+    the one that answered — so the measured rate must land on ``1 - (1 - alpha)^k``.
+    """
+    scenario = make_scenario("family", "normal", n_a=60, n_b=60, settings=settings)
+    result = family_wise_error_rate(welch_test, scenario, k=20, trials=1500, alpha=0.05, seed=SEED)
+    assert result.expected_rate == pytest.approx(0.6415, abs=1e-3)
+    assert result.any_significant_rate == pytest.approx(
+        result.expected_rate, abs=mc_tolerance(result.expected_rate, result.trials)
+    )
+    # Each individual test is still calibrated; k * alpha false alarms per experiment.
+    assert result.mean_significant == pytest.approx(20 * 0.05, abs=0.15)
+
+
+def test_family_wise_error_rate_requires_a_null_scenario(settings):
+    scenario = make_scenario("f", "normal", n_a=20, n_b=20, effect_d=0.5, settings=settings)
+    with pytest.raises(ValueError, match="nothing to find"):
+        family_wise_error_rate(welch_test, scenario, k=5, trials=10, alpha=0.05, seed=SEED)
 
 
 @pytest.mark.slow

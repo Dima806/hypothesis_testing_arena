@@ -142,7 +142,7 @@ def _jsonable(value: Any) -> Any:
 def save_results(name: str, payload: Mapping[str, Any]) -> str:
     """Write one notebook's numbers and claims to ``outputs/results/<name>.json``.
 
-    Every number quoted in the article comes out of one of these files. Nothing that appears in
+    Every number quoted comes out of one of these files. Nothing that appears in
     prose should exist only inside a notebook's output cell, where it cannot be checked against
     the code that produced it.
     """

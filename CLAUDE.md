@@ -284,8 +284,7 @@ Rules:
 - Markdown-first: every code cell is preceded by prose saying what it will show and followed by prose
   saying what it showed.
 - Deterministic: seeds from config; must run top-to-bottom from a clean kernel in **< 5 min**.
-- Save every figure to `outputs/figures/` with a stable filename — 7–8 of them become the article's
-  figures.
+- Save every figure to `outputs/figures/` with a stable filename.
 - Notebook 06 ships the practical artifact: `compare_groups(a, b, test=...)`, which runs the chosen
   test **and warns when the data violates that test's assumptions**. That warning behavior needs a
   unit test.
@@ -325,7 +324,7 @@ The success criteria in PRD §8 are the acceptance tests — each row should map
 ## 11. Figures
 
 All plotting lives in `src/visualisation.py`; notebooks and the app call it, they don't build axes.
-Matplotlib for static article figures, plotly where interactivity earns its place (arena heatmaps,
+Matplotlib for static figures, plotly where interactivity earns its place (arena heatmaps,
 the Streamlit tabs). Every figure that makes a claim shows the **α reference line** and, where it is
 a rate estimated from simulation, its Monte Carlo error. Colour-code contenders consistently across
 the whole project — one test, one colour, in every figure.

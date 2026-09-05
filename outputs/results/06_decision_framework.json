@@ -1,0 +1,97 @@
+{
+  "assumption_report": {
+    "clean": false,
+    "messages": [
+      "small sample (n = 80, 12): the t-test's normal approximation is doing work it cannot support, and a normality test here has almost no power",
+      "skewed data (skewness 3.21, 2.76): the mean may be the wrong summary; consider a permutation test on a median or trimmed mean",
+      "normality rejected (Shapiro-Wilk p = 7.417e-12): prefer an assumption-free test",
+      "8.3% of observations are far outliers: they inflate the variance estimate and drain the t-test's power"
+    ],
+    "n_a": 80,
+    "n_b": 12,
+    "normality_p_a": 7.416677423883986e-12,
+    "normality_p_b": 2.1664009904056794e-05,
+    "outlier_fraction": 0.08333333333333333,
+    "sd_ratio": 1.8731218756769832,
+    "skewness_a": 3.206756648924836,
+    "skewness_b": 2.757002455277239
+  },
+  "claims": [
+    "Welch should be the default two-sample t-test; there is no situation in this project where Student is correct and Welch is not.",
+    "For skewed, heavy-tailed, outlier-prone or small samples, use a permutation or bootstrap test, which assume nothing about the shape.",
+    "Permutation and bootstrap work for any statistic, so they are the only option when comparing medians, ratios or percentiles.",
+    "A passing normality test on a small sample is not evidence of normality; it is evidence of insufficient power to detect non-normality.",
+    "compare_groups defaults to the permutation test and warns when the chosen test's assumptions are violated by the data."
+  ],
+  "compare_groups_demo": {
+    "clean": {
+      "n_a": 200,
+      "n_b": 200,
+      "n_warnings": 0
+    },
+    "default_test": "permutation",
+    "nasty": {
+      "n_a": 80,
+      "n_b": 12,
+      "sd_ratio": 3.0,
+      "warnings": [
+        "student t-test: small sample (n = 80, 12): the t-test's normal approximation is doing work it cannot support, and a normality test here has almost no power",
+        "student t-test: skewed data (skewness 3.21, 2.76): the mean may be the wrong summary; consider a permutation test on a median or trimmed mean",
+        "student t-test: normality rejected (Shapiro-Wilk p = 7.417e-12): prefer an assumption-free test",
+        "student t-test: 8.3% of observations are far outliers: they inflate the variance estimate and drain the t-test's power"
+      ]
+    }
+  },
+  "decision_rules": [
+    {
+      "reason": "Student is also fine, but Welch removes a failure mode free",
+      "situation": "roughly normal, equal variances, balanced groups",
+      "use": "Welch t"
+    },
+    {
+      "reason": "Student rejected 37.5% at alpha=0.05 with n=100 vs 15 and no real difference",
+      "situation": "unequal variances",
+      "use": "Welch t (never Student)"
+    },
+    {
+      "reason": "permutation was the only contender with a single inflated null cell in the grid",
+      "situation": "skewed, heavy-tailed, outliers, or small n",
+      "use": "permutation or bootstrap"
+    },
+    {
+      "reason": "they work for any statistic",
+      "situation": "comparing a median, ratio or percentile",
+      "use": "permutation or bootstrap"
+    },
+    {
+      "reason": "returns an interval on the scale of the data",
+      "situation": "you want the size of the effect",
+      "use": "bootstrap"
+    },
+    {
+      "reason": "answers the question stakeholders asked",
+      "situation": "you want P(b > a)",
+      "use": "Bayesian estimation"
+    },
+    {
+      "reason": "every test ran 2.6-6.8x alpha; collect more data",
+      "situation": "skew AND unequal spread AND a small group",
+      "use": "none are reliable"
+    }
+  ],
+  "figures": {
+    "decision_flowchart": "/workspaces/hypothesis_testing_arena/outputs/figures/06_decision_flowchart.png"
+  },
+  "notebook": "06_decision_framework",
+  "settings": {
+    "alpha": 0.05,
+    "profile": "full",
+    "seed": 20250905
+  },
+  "universal_rules": [
+    "Welch is the default; there is no case where Student is right and Welch is wrong.",
+    "Check assumptions before trusting a parametric p-value.",
+    "When in doubt use the assumption-free test; its only cost is compute.",
+    "Never report a p-value from a test whose assumptions you did not verify."
+  ]
+}

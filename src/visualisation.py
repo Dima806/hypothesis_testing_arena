@@ -14,11 +14,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import cast
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 
 from src.config import FIGURES_DIR
 from src.evaluation.calibration import CalibrationResult, rejection_rate_curve, uniform_pp_points
@@ -350,23 +352,39 @@ def plot_multiple_comparisons(
     return _as_figure(ax)
 
 
+def tint(hex_colour: str, amount: float = 0.82) -> tuple[float, float, float]:
+    """Blend a colour towards white, so text stays readable on top of it."""
+    red, green, blue = mcolors.to_rgb(hex_colour)
+    return (
+        red + (1.0 - red) * amount,
+        green + (1.0 - green) * amount,
+        blue + (1.0 - blue) * amount,
+    )
+
+
 def plot_decision_flowchart(*, ax: Axes | None = None) -> Figure:
-    """The whole project as one picture: which test, and why."""
+    """The whole project as one picture: which test, and why.
+
+    Terminal boxes are filled with a tint of the test's colour and outlined in the colour
+    itself, so the palette still identifies the test without putting dark text on a saturated
+    background - and so the Student branch does not read as a warning when it is in fact the
+    branch where Student is acceptable.
+    """
     if ax is None:
         _, ax = plt.subplots(figsize=(11, 7.5))
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 10)
     ax.axis("off")
 
-    def box(x, y, text, face, width=3.4, height=0.95, size=9):
+    def box(x, y, text, face, width=3.4, height=0.95, size=9, edge="#444444"):
         ax.add_patch(
-            plt.Rectangle(  # type: ignore[attr-defined]
+            Rectangle(
                 (x - width / 2, y - height / 2),
                 width,
                 height,
                 facecolor=face,
-                edgecolor="#444444",
-                linewidth=1.2,
+                edgecolor=edge,
+                linewidth=1.6,
                 zorder=2,
             )
         )
@@ -390,20 +408,31 @@ def plot_decision_flowchart(*, ax: Axes | None = None) -> Figure:
                 color="#333333",
             )
 
-    box(5, 9.3, "Comparing two groups", "#e8e8e8", width=4.0)
-    box(5, 7.8, "Comparing something\nother than a mean?", "#fff3cd", width=4.0)
-    box(1.9, 6.2, "Permutation\nor bootstrap\n(any statistic)", colour("permutation"), width=3.0)
-    box(6.6, 6.2, "Skewed, heavy-tailed,\noutliers, or small n?", "#fff3cd", width=4.0)
-    box(1.9, 4.4, "Permutation\nor bootstrap\n(assume nothing)", colour("permutation"), width=3.0)
-    box(6.6, 4.4, "Unequal variances?", "#fff3cd", width=3.4)
-    box(4.3, 2.8, "Welch t-test\n(never Student)", colour("welch"), width=3.0)
-    box(8.3, 2.8, "Student is fine —\nbut Welch is free", colour("student"), width=3.2)
+    ask, ask_edge = "#fdf6e3", "#b8952f"
+    perm, welch_c, student_c = colour("permutation"), colour("welch"), colour("student")
+
+    box(5, 9.3, "Comparing two groups", "#eeeeee", width=4.0)
+    box(5, 7.8, "Comparing something\nother than a mean?", ask, width=4.0, edge=ask_edge)
+    box(1.9, 6.2, "Permutation\nor bootstrap\n(any statistic)", tint(perm), width=3.0, edge=perm)
+    box(6.6, 6.2, "Skewed, heavy-tailed,\noutliers, or small n?", ask, width=4.0, edge=ask_edge)
+    box(1.9, 4.4, "Permutation\nor bootstrap\n(assume nothing)", tint(perm), width=3.0, edge=perm)
+    box(6.6, 4.4, "Unequal variances?", ask, width=3.4, edge=ask_edge)
+    box(4.3, 2.8, "Welch t-test\n(never Student)", tint(welch_c), width=3.0, edge=welch_c)
+    box(
+        8.3,
+        2.8,
+        "Student is fine —\nbut Welch is free",
+        tint(student_c),
+        width=3.2,
+        edge=student_c,
+    )
     box(
         5,
         1.1,
         "Want P(effect) instead of a p-value?  →  Bayesian estimation",
-        "#d5e8f7",
+        tint(colour("bayesian")),
         width=8.0,
+        edge=colour("bayesian"),
     )
 
     arrow(5, 8.83, 5, 8.28)

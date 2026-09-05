@@ -7,6 +7,7 @@ shown failing once it has been shown to be correct.
 
 from __future__ import annotations
 
+import pathlib
 import warnings
 
 import numpy as np
@@ -333,6 +334,39 @@ def test_the_arena_cache_is_keyed_on_content_not_on_a_filename(tmp_path, monkeyp
     assert arena_cache_key(grid, ["welch"], **{**base, "alpha": 0.01}) != key
     assert arena_cache_key(grid, ["welch", "student"], **base) != key
     assert arena_cache_key([grid[0].with_effect(0.5)], ["welch"], **base) != key
+
+
+def test_save_results_writes_strict_json(tmp_path, monkeypatch):
+    """The notebooks' numbers must land on disk as valid, readable JSON.
+
+    NaN is the case that matters: the arena legitimately carries it in ``target`` for power
+    rows, and json.dumps would otherwise emit a bare NaN, which is not valid JSON.
+    """
+    import json
+
+    import pandas as pd
+
+    import src.config as config_module
+    from src.config import save_results
+
+    monkeypatch.setattr(config_module, "RESULTS_DIR", tmp_path)
+    payload = {
+        "scalar": np.float64(1.5),
+        "not_a_number": float("nan"),
+        "array": np.arange(3),
+        "frame": pd.DataFrame({"a": [1, 2], "b": [float("nan"), 0.5]}),
+        "nested": {"tuple": (1, 2), "path": tmp_path},
+        "claims": ["a sentence"],
+    }
+    path = save_results("probe", payload)
+    text = pathlib.Path(path).read_text(encoding="utf-8")
+    assert "NaN" not in text
+    restored = json.loads(text)  # strict: would raise on NaN/Infinity
+    assert restored["scalar"] == 1.5
+    assert restored["not_a_number"] is None
+    assert restored["array"] == [0, 1, 2]
+    assert restored["frame"] == [{"a": 1, "b": None}, {"a": 2, "b": 0.5}]
+    assert restored["nested"]["tuple"] == [1, 2]
 
 
 def test_check_assumptions_flags_the_conditions_it_should():
